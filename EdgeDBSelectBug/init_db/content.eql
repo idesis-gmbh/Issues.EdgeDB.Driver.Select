@@ -1,0 +1,114 @@
+﻿insert Person {
+    first_name := 'William',
+    middle_name := '',
+    last_name := 'Shatner',
+    dob := <datetime>'1931-03-22T00:00:00+00:00',
+    bio := 'Canadian actor, producer, director, author, singer, ...',
+    image := 'no_image.jpg'
+};
+
+insert Person {
+    first_name := 'Leonard',
+    middle_name := 'Simon',
+    last_name := 'Nimoy',
+    dob := <datetime>'1931-03-26T00:00:00+00:00',
+    dod := <datetime>'2015-02-27T00:00:00+00:00',
+    bio := 'US american actor, director, producer, author, musician, ...',
+    image := 'no_image.jpg'
+};
+
+insert Person {
+    first_name := 'Grace',
+    middle_name := 'Dell "Nichelle"',
+    last_name := 'Nichols',
+    dob := <datetime>'1932-12-28T00:00:00+00:00',
+    dod := <datetime>'2022-07-30T00:00:00+00:00',
+    bio := 'US american actress, singer, dancer, ...',
+    image := 'no_image.jpg'
+};
+
+insert Person {
+    first_name := 'Robert',
+    middle_name := '',
+    last_name := 'Wise',
+    dob := <datetime>'1914-09-10T00:00:00+00:00',
+    dod := <datetime>'2005-09-14T00:00:00+00:00',
+    bio := 'US american director, producer, editor ...',
+    image := 'no_image.jpg'
+};
+
+insert Movie {
+    title := 'Star Trek: TMP',
+    year := 1979,
+    image := 'TMP.jpg',
+    directors := (
+        select Person
+        filter .full_name = 'Robert Wise'
+        limit 1
+    ),
+    actors := (
+        select Person {
+            @list_order := 1
+        }
+        filter .full_name = 'William Shatner'
+        limit 1
+    ),
+    description := 'Nothing happens ...'
+};
+
+
+update Movie
+filter .title = 'Star Trek: TMP' and .year = 1979
+set {
+    actors += assert_single((
+        select Person {
+            @list_order := 2
+        }
+        filter .full_name = 'Leonard Simon Nimoy'
+    ))        
+};
+
+update Movie
+filter .title = 'Star Trek: TMP' and .year = 1979
+set {
+    actors += assert_single((
+        select Person {
+            @list_order := 7
+        }
+        filter .full_name = 'Grace Dell "Nichelle" Nichols'
+    ))        
+};
+
+
+# Create a new review and a new user in one step.
+insert Review {
+    body := 'Loved it!!!',
+    rating := 5,
+    # The movie record already exists, so select it.
+    movie := (
+        select Movie
+        filter
+            .title = 'Star Trek: TMP'
+            and
+            .year = 1979
+        # the limit is needed to satisfy the single
+        # link requirement validation
+        limit 1
+    ),
+
+    # This might be a new user or an existing user. Some
+    # other part of the app handles authentication, this
+    # endpoint is used as a generic way to post a review.
+    author := (
+        # Try to create a new User,
+        insert User {
+            name := "dune_fan_2020",
+            image := "default_avatar.jpg",
+        }
+
+        # but if a User with this name already exists,
+        unless conflict on .name
+        # just pick that existing User as the author.
+        else User
+    )
+}
